@@ -4,7 +4,6 @@ import json
 import os
 from config import settings
 
-
 DATA_FILE = "counter.json"
 
 

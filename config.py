@@ -23,4 +23,4 @@ def save_config(data, filename="config.json"):
 
 async def sendlog(channel, message: str):
     print(message)
-    await channel.send(message)
+    await channel.send(f"➡️{message}")

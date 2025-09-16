@@ -1,5 +1,5 @@
 {
-    
+
     "PREFIX": "!",
     "ERROR_CHANNEL_ID": 1412896078642286613,
     "ERROR_USER_ID": 681888551981547563,
@@ -7,5 +7,7 @@
     "COUNTING_GAME_CHANNEL_ID": 1412872508306100306,
     "CONFIG_CHANNEL_ID": 1412736412582678608,
     "ROLE_CHANNEL_ID": 1412161463274963064,
-    "TRIGGER_MESSAGE": "https://tenor.com/view/gooners-avengers-assemble-gif-7264025877564895460"
+    "BIRTHDAY_CHANNEL_ID": 1308124335084535888,
+    "TRIGGER_MESSAGE": "https://tenor.com/view/gooners-avengers-assemble-gif-7264025877564895460",
+    "BIRTHDAY_MESSAGE": "https://tenor.com/view/happy-birthday-bon-anniversaire-birthday-cake-birthday-birthday-fiesta-gif-12707264612877386805"
 }

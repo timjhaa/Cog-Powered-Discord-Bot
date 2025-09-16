@@ -38,6 +38,8 @@ async def on_ready():
         await LOG_CHANNEL.send("------")
     else:
         print("LOG_CHANNEL returned None")
+    activity = discord.Game(name="!help")
+    await bot.change_presence(status=discord.Status.online, activity=activity)
     await load_cogs()
 
 
@@ -54,8 +56,8 @@ async def load_cogs():
                 print(f"❌ Failed to load {filename}: {e}")
                 if LOG_CHANNEL:
                     await LOG_CHANNEL.send(f"❌ Failed to load {filename}: {e}")
-    await LOG_CHANNEL.send(f"BOT IS READY")
-    print("BOT IS READY")
+    await LOG_CHANNEL.send(f"💟💟 BOT IS READY 💟💟")
+    print("💟 BOT IS READY")
 
 
 async def main():

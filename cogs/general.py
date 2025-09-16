@@ -22,7 +22,7 @@ class General(commands.Cog):
 
     @commands.command()
     async def setuproles(self,ctx):
-        if ctx.channel.id == config["ROLE_CHANNEL_ID"]:
+        if ctx.channel.id == config["ROLE_CHANNEL_ID"] and ctx.author.guild_permissions.administrator == True:
             deleted = await ctx.channel.purge(limit=100)
             await ctx.send(f"{len(deleted)} Nachrichten gelöscht.", delete_after=5)
             await ctx.send(f"In diesem Channel kannst du dir Rollen vergeben, so kannst du Entscheiden was dich interressiert.")
@@ -46,6 +46,8 @@ class General(commands.Cog):
             await ctx.send("------------")
             await ctx.send("PEAK")
 
+
+
 #Bot Config Commands:
     def is_config_channel(self, ctx):
         return ctx.channel.id == config["CONFIG_CHANNEL_ID"]
@@ -63,7 +65,14 @@ class General(commands.Cog):
                 "`!showc` → Zeigt gesamte Config an\n"
             )
             await ctx.send(help_text)
-
+        else:
+            help_text = (
+                "**GOONING BOT-Befehle:**\n"
+                "`!echo <key>` → Bot wiederholt <key>\n"
+                "`!addbirthday <key>` → Eingabe: MM-DD z.B ! addbirthday 09-16 für 16.09! Speichert deinen Geburtstag um alle an ihn zu erinnern\n"
+                "`!removebirthday` →  Löscht deinen gespeicherten Geburtstag\n"
+            )
+            await ctx.send(help_text)
     @commands.command()
     async def getc(self, ctx, key: str):
         if self.is_config_channel(ctx):

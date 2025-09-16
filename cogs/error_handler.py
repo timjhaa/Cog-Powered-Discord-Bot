@@ -71,7 +71,7 @@ class ErrorHandler(commands.Cog):
             try:
                 await user.send(embed=embed)
             except discord.Forbidden:
-                print("⚠️ Could not DM the error user (maybe DMs are disabled).")
+                print("⚠️ Could not DM the error user.")
 
 
 async def setup(bot: commands.Bot):

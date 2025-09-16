@@ -4,7 +4,6 @@ from config import settings as config
 from config import sendlog
 
 
-
 class ReactionRoleCog(commands.Cog):
     def __init__(self, bot, config):
         self.bot = bot

@@ -3,6 +3,7 @@ from discord.ext import commands
 import os
 import asyncio
 import logging
+import signal
 from dotenv import load_dotenv
 from config import settings
 
@@ -31,10 +32,6 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 # ---- Helper function to load/reload cogs ----
 async def load_or_reload_cog(cog_name: str = None):
-    """
-    Load all cogs or reload a specific cog safely.
-    Returns a dictionary: 'success', 'reloaded', 'failed'
-    """
     success = []
     reloaded = []
     failed = []
@@ -110,7 +107,6 @@ async def on_ready():
 @bot.command(name="reload")
 @commands.is_owner()
 async def reload_cog(ctx, cog_name: str = None):
-    """Reload a specific cog or all cogs with an embed dashboard."""
     results = await load_or_reload_cog(cog_name)
 
     embed = discord.Embed(
@@ -129,15 +125,38 @@ async def reload_cog(ctx, cog_name: str = None):
     total = len(results["success"]) + len(results["reloaded"]) + len(results["failed"])
     embed.set_footer(text=f"Total cogs processed: {total}")
 
-    # Define LOG_CHANNEL first
     LOG_CHANNEL = bot.get_channel(settings["LOG_CHANNEL_ID"])
-
-    # Send to log channel if it exists
     if LOG_CHANNEL and LOG_CHANNEL.id != ctx.channel.id:
         await LOG_CHANNEL.send(embed=embed)
-
-    # Always send to the command channel
     await ctx.send(embed=embed)
+
+
+# ---- Shutdown command ----
+@bot.command(name="shutdown")
+@commands.is_owner()
+async def shutdown(ctx):
+    """Safely shuts down the bot."""
+    LOG_CHANNEL = bot.get_channel(settings["LOG_CHANNEL_ID"])
+    
+    if LOG_CHANNEL:
+        await LOG_CHANNEL.send("####----Bot is shutting down----####")
+        await LOG_CHANNEL.send(f"🛑 Shutdown initiated by: {ctx.author}")
+    
+    await ctx.send("Bot is shutting down safely...")
+    await bot.close()
+
+
+# ---- Signal handling for safe shutdown ----
+def handle_exit(*args):
+    LOG_CHANNEL = bot.get_channel(settings["LOG_CHANNEL_ID"])
+    if LOG_CHANNEL:
+        asyncio.create_task(LOG_CHANNEL.send("⚡ Bot is shutting down due to termination signal."))
+    print("💀 Bot terminated via signal.")
+    asyncio.create_task(bot.close())
+
+signal.signal(signal.SIGINT, handle_exit)
+signal.signal(signal.SIGTERM, handle_exit)
+
 
 # ---- Bot start ----
 async def main():

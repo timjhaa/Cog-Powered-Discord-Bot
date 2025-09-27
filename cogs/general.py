@@ -129,6 +129,11 @@ class General(commands.Cog):
                 value="[RESTRICTED] reloads <cog>, reloads all when no cog is given",
                 inline=False
             )
+            embed.add_field(
+                name="!shutdown ",
+                value="[RESTRICTED] shuts the bot down safely",
+                inline=False
+            )
         else:
             embed.description = "Hier sind die allgemeinen Bot-Befehle:"
             embed.add_field(

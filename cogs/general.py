@@ -75,6 +75,7 @@ class General(commands.Cog):
             await ctx.send("PEAK")
             await ctx.send("------------")
             await ctx.send("Riot-Games")
+
 #Bot Config Commands:
     def is_config_channel(self, ctx):
         return ctx.channel.id == config["CONFIG_CHANNEL_ID"]
@@ -162,8 +163,16 @@ class General(commands.Cog):
                 inline=False
             )
 
+
+        embed.add_field(
+                name="SEE FULL DOCUMENTATION",
+                value="https://github.com/timjhaa/Cog-Powered-Discord-Bot",
+                inline=False
+            )
         embed.set_footer(text=f"Angefordert von {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else None)
         await ctx.send(embed=embed)
+
+        
     @commands.command()
     async def getc(self, ctx, key: str):
         if self.is_config_channel(ctx):

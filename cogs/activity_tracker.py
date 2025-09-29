@@ -7,16 +7,20 @@ from config import settings
 
 GAME_KEYWORDS = ["game"]  # any activity containing this is considered a game
 
+
 class ActivityTracker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.data_file = "activity_data.json"
         self.weekly_file = "weekly_data.json"
 
+        # Blacklisted activities from config
+        self.blacklist = set(a.lower() for a in settings.get("activity_blacklist", []))
+
         # Persistent storage
-        self.activity_times = {}  # format: {user_id: {activity: [real_time, hidden_time]}}
+        self.activity_times = {}  # {user_id: {activity: [real_time, hidden_time]}}
         self.voice_times = {}
-        self.weekly_activity = {}  # format: {user_id: {activity_start: timestamp}}
+        self.weekly_activity = {}  # {user_id: {activity_start: timestamp}}
         self.weekly_voice = {}
 
         self.save_interval = settings.get("save_interval", 60)
@@ -112,7 +116,6 @@ class ActivityTracker(commands.Cog):
             if not ongoing:
                 continue
 
-            # Determine which activity is "real"
             act_names = [act.replace("_start", "") for act in ongoing]
             game_activities = [act for act in act_names if any(g in act.lower() for g in GAME_KEYWORDS)]
             if game_activities:
@@ -125,10 +128,15 @@ class ActivityTracker(commands.Cog):
                 start_time = activities[act_start]
                 elapsed = now - start_time
                 self.activity_times[user_id].setdefault(act_name, [0, 0])
-                if act_name == real_act:
-                    self.activity_times[user_id][act_name][0] += elapsed
-                else:
+
+                if act_name.lower() in self.blacklist:
                     self.activity_times[user_id][act_name][1] += elapsed
+                else:
+                    if act_name == real_act:
+                        self.activity_times[user_id][act_name][0] += elapsed
+                    else:
+                        self.activity_times[user_id][act_name][1] += elapsed
+
                 activities[act_start] = now
 
         # Update voice times
@@ -163,10 +171,11 @@ class ActivityTracker(commands.Cog):
             start = self.weekly_activity[user_id].pop(act_name + "_start", None)
             if start:
                 elapsed = now - start
-                # Update as real if it was the main real activity
-                # For simplicity, just add to real; hidden time from overlapping handled in periodic updates
                 self.activity_times[user_id].setdefault(act_name, [0, 0])
-                self.activity_times[user_id][act_name][0] += elapsed
+                if act_name.lower() in self.blacklist:
+                    self.activity_times[user_id][act_name][1] += elapsed
+                else:
+                    self.activity_times[user_id][act_name][0] += elapsed
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -217,7 +226,18 @@ class ActivityTracker(commands.Cog):
                 continue
             total_time = sum(v[0] for v in activities.values())  # only real time
             top3 = sorted(activities.items(), key=lambda x: x[1][0], reverse=True)[:3]
-            top_text = "\n".join([f"{name}: {v[0]//60} min (dupl.: {v[1]//60} min)" for name, v in top3]) if top3 else "No activity"
+            top_text = (
+                "\n".join(
+                    [
+                        f"*{name}*: {v[0]//60} min (dupl.: {v[1]//60} min)"
+                        if name.lower() in self.blacklist
+                        else f"{name}: {v[0]//60} min (dupl.: {v[1]//60} min)"
+                        for name, v in top3
+                    ]
+                )
+                if top3
+                else "No activity"
+            )
             activity_board.append((total_time, user.display_name, top_text))
         activity_board.sort(reverse=True, key=lambda x: x[0])
         embed_activity = discord.Embed(title=f"{title_prefix} Activity Leaderboard", color=discord.Color.orange())
@@ -271,7 +291,18 @@ class ActivityTracker(commands.Cog):
 
         activities = self.activity_times.get(user_id, {})
         top3 = sorted(activities.items(), key=lambda x: x[1][0], reverse=True)[:3]
-        top_text = "\n".join([f"{name}: {v[0]//60} min (dupl.: {v[1]//60} min)" for name, v in top3]) if top3 else "No activity"
+        top_text = (
+            "\n".join(
+                [
+                    f"*{name}*: {v[0]//60} min (dupl.: {v[1]//60} min)"
+                    if name.lower() in self.blacklist
+                    else f"{name}: {v[0]//60} min (dupl.: {v[1]//60} min)"
+                    for name, v in top3
+                ]
+            )
+            if top3
+            else "No activity"
+        )
 
         voice_data = self.voice_times.get(user_id, {"total": 0, "ongoing_start": None})
         total_voice = voice_data.get("total", 0)

@@ -11,5 +11,8 @@
     "ADMIN_USER_ID":681888551981547563,
     "TRIGGER_MESSAGE": "https://tenor.com/view/beaker-muppets-fire-oops-panicking-gif-16444171",
     "BIRTHDAY_MESSAGE": "https://tenor.com/view/happy-birthday-bon-anniversaire-birthday-cake-birthday-birthday-fiesta-gif-12707264612877386805",
-    "leaderboard_limit": 30
+    "leaderboard_limit": 30,
+    "activity_blacklist": [
+        "Spotify"
+    ]
 }

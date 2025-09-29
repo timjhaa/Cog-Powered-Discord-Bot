@@ -2,24 +2,24 @@ import discord
 from discord.ext import commands
 import json
 import ast
-from config import  save_config
+from config import save_config
 from config import settings as config
+import asyncio
 
 class General(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-
     @commands.command()
     async def echo(self, ctx, *, message: str):
-        if message is None:
-            await ctx.send("Message is missing!",delete_after = 7)
-        """Repeats what you say"""
+        if not message:
+            await ctx.send("Message is missing!", delete_after=7)
+            return
         await ctx.send(message)
 
     @commands.command()
     async def clear(self, ctx, amount: int = 100):
-        ADMIN_USER_ID = config["ADMIN_USER_ID"]
+        ADMIN_USER_ID = int(config["ADMIN_USER_ID"])
 
         if ctx.author.id != ADMIN_USER_ID:
             await ctx.send("⛔ You don't have permission to use this command.", delete_after=5)
@@ -28,8 +28,8 @@ class General(commands.Cog):
         # Clamp between 1 and 100
         amount = min(max(amount, 1), 100)
 
-        # Fetch messages
-        messages = await ctx.channel.history(limit=amount + 1).flatten()  # +1 to include command message
+        # Fetch messages using async iteration (no flatten)
+        messages = [msg async for msg in ctx.channel.history(limit=amount + 1)]  # +1 to include command message
 
         deleted_count = 0
         for msg in messages:
@@ -37,20 +37,18 @@ class General(commands.Cog):
                 await msg.delete()
                 deleted_count += 1
             except discord.NotFound:
-                continue  # Message was already deleted, ignore
+                continue
             except discord.Forbidden:
                 await ctx.send("⛔ I don't have permission to delete some messages.", delete_after=5)
                 break
             except discord.HTTPException:
-                continue  # Some other deletion error, skip
+                continue
 
-        # Send confirmation (excluding the command itself)
         await ctx.send(f"✅ Deleted {max(deleted_count - 1, 0)} messages.", delete_after=5)
 
-        
     @commands.command()
-    async def setuproles(self,ctx):
-        if ctx.channel.id == config["ROLE_CHANNEL_ID"] and ctx.author.guild_permissions.administrator == True:
+    async def setuproles(self, ctx):
+        if ctx.channel.id == config["ROLE_CHANNEL_ID"] and ctx.author.guild_permissions.administrator:
             deleted = await ctx.channel.purge(limit=100)
             await ctx.send(f"{len(deleted)} Nachrichten gelöscht.", delete_after=5)
             await ctx.send(f"In diesem Channel kannst du dir Rollen vergeben, so kannst du Entscheiden was dich interressiert.")
@@ -76,10 +74,10 @@ class General(commands.Cog):
             await ctx.send("------------")
             await ctx.send("Riot-Games")
 
-#Bot Config Commands:
+    # ---- Bot Config Commands ----
     def is_config_channel(self, ctx):
         return ctx.channel.id == config["CONFIG_CHANNEL_ID"]
-    
+
     @commands.command(name="help")
     async def custom_help(self, ctx):
         embed = discord.Embed(
@@ -90,89 +88,27 @@ class General(commands.Cog):
 
         if self.is_config_channel(ctx):
             embed.description = "Hier sind die Config-Befehle:"
-            embed.add_field(
-                name="!getc <key>",
-                value="Zeigt den Wert für <key> an",
-                inline=False
-            )
-            embed.add_field(
-                name="!setc <key> <wert>",
-                value="Ändert <wert> der Config (nur für nicht-Listen Werte)",
-                inline=False
-            )
-            embed.add_field(
-                name="!setlistc <key> <wert>",
-                value="Ersetzt eine LISTE mit einer neuen Liste (Eingabe als Liste)",
-                inline=False
-            )
-            embed.add_field(
-                name="!addlistc <key> <wert>",
-                value="Fügt <wert> zu einer LISTE hinzu",
-                inline=False
-            )
-            embed.add_field(
-                name="!remlistc <key> <wert>",
-                value="Entfernt <wert> von einer LISTE",
-                inline=False
-            )
-            embed.add_field(
-                name="!showc",
-                value="Zeigt die gesamte Config an",
-                inline=False
-            )
-            embed.add_field(
-                name="!clear <amount>",
-                value="[RESTRICTED] deletes <amount> messages in the current channel, max 100, uses max when no ammount is given",
-                inline=False
-            )
-            embed.add_field(
-                name="!reload <cog>",
-                value="[RESTRICTED] reloads <cog>, reloads all when no cog is given",
-                inline=False
-            )
-            embed.add_field(
-                name="!shutdown ",
-                value="[RESTRICTED] shuts the bot down safely",
-                inline=False
-            )
+            embed.add_field(name="!getc <key>", value="Zeigt den Wert für <key> an", inline=False)
+            embed.add_field(name="!setc <key> <wert>", value="Ändert <wert> der Config (nur für nicht-Listen Werte)", inline=False)
+            embed.add_field(name="!setlistc <key> <wert>", value="Ersetzt eine LISTE mit einer neuen Liste (Eingabe als Liste)", inline=False)
+            embed.add_field(name="!addlistc <key> <wert>", value="Fügt <wert> zu einer LISTE hinzu", inline=False)
+            embed.add_field(name="!remlistc <key> <wert>", value="Entfernt <wert> von einer LISTE", inline=False)
+            embed.add_field(name="!showc", value="Zeigt die gesamte Config an", inline=False)
+            embed.add_field(name="!clear <amount>", value="[RESTRICTED] deletes <amount> messages in the current channel, max 100", inline=False)
+            embed.add_field(name="!reload <cog>", value="[RESTRICTED] reloads <cog>, reloads all when no cog is given", inline=False)
+            embed.add_field(name="!shutdown", value="[RESTRICTED] shuts the bot down safely", inline=False)
         else:
             embed.description = "Hier sind die allgemeinen Bot-Befehle:"
-            embed.add_field(
-                name="!echo <nachricht>",
-                value="Bot wiederholt deine Nachricht",
-                inline=False
-            )
-            embed.add_field(
-                name="!stats <member>",
-                value="showes playtime stats off <member>, if no <member> is given, shows stats of author",
-                inline=False
-            )
-            embed.add_field(
-                name="!leaderboard",
-                value="showes alltime-playtime leaderboard",
-                inline=False
-            )
-            embed.add_field(
-                name="!addbirthday <MM-DD>",
-                value="Speichert deinen Geburtstag, um dich daran zu erinnern",
-                inline=False
-            )
-            embed.add_field(
-                name="!removebirthday",
-                value="Löscht deinen gespeicherten Geburtstag",
-                inline=False
-            )
+            embed.add_field(name="!echo <nachricht>", value="Bot wiederholt deine Nachricht", inline=False)
+            embed.add_field(name="!stats <member>", value="showes playtime stats off <member>, if no <member> is given, shows stats of author", inline=False)
+            embed.add_field(name="!leaderboard", value="showes alltime-playtime leaderboard", inline=False)
+            embed.add_field(name="!addbirthday <MM-DD>", value="Speichert deinen Geburtstag, um dich daran zu erinnern", inline=False)
+            embed.add_field(name="!removebirthday", value="Löscht deinen gespeicherten Geburtstag", inline=False)
 
-
-        embed.add_field(
-                name="SEE FULL DOCUMENTATION",
-                value="https://github.com/timjhaa/Cog-Powered-Discord-Bot",
-                inline=False
-            )
+        embed.add_field(name="SEE FULL DOCUMENTATION", value="https://github.com/timjhaa/Cog-Powered-Discord-Bot", inline=False)
         embed.set_footer(text=f"Angefordert von {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else None)
         await ctx.send(embed=embed)
 
-        
     @commands.command()
     async def getc(self, ctx, key: str):
         if self.is_config_channel(ctx):
@@ -191,7 +127,7 @@ class General(commands.Cog):
                 save_config(config)
                 await ctx.send(f"{key} wurde auf '{value}' geändert.")
                 if key == "prefix":
-                    self.bot.command_prefix = value  # Prefix live ändern
+                    self.bot.command_prefix = value
             else:
                 await ctx.send("Key does not exist.")
 

@@ -14,7 +14,6 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s:%(levelname)s:%(name)s: %(message)s'
 )
-handler = logging.FileHandler(filename="discord.log", encoding="utf-8", mode="w")
 
 # ---- Bot setup ----
 intents = discord.Intents.default()
@@ -24,11 +23,10 @@ intents.presences = True
 intents.reactions = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix=settings["PREFIX"], intents=intents, help_command=None)
+bot = commands.Bot(command_prefix=settings.get("PREFIX", "!"), intents=intents, help_command=None)
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
-
 
 # ---- Helper function to load/reload cogs ----
 async def load_or_reload_cog(cog_name: str = None):
@@ -64,12 +62,11 @@ async def load_or_reload_cog(cog_name: str = None):
     print(f"Loaded: {success}, Reloaded: {reloaded}, Failed: {failed}")
     return {"success": success, "reloaded": reloaded, "failed": failed}
 
-
 # ---- Bot events ----
 @bot.event
 async def on_ready():
     await asyncio.sleep(1)
-    LOG_CHANNEL = bot.get_channel(settings["LOG_CHANNEL_ID"])
+    LOG_CHANNEL = bot.get_channel(settings.get("LOG_CHANNEL_ID"))
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
     if LOG_CHANNEL:
@@ -80,10 +77,8 @@ async def on_ready():
     activity = discord.Game(name="!help")
     await bot.change_presence(status=discord.Status.online, activity=activity)
     
-    # Load all cogs safely
     results = await load_or_reload_cog()
 
-    # Send a single ready embed
     if LOG_CHANNEL:
         embed = discord.Embed(
             title="💟 Bot Ready",
@@ -102,12 +97,23 @@ async def on_ready():
     
     print("💟 BOT IS READY")
 
-
-# ---- Reload command ----
+# ---- Reload command (admin-safe) ----
 @bot.command(name="reload")
-@commands.is_owner()
 async def reload_cog(ctx, cog_name: str = None):
-    results = await load_or_reload_cog(cog_name)
+    try:
+        admin_id = int(settings.get("ADMIN_USER_ID", 0))
+    except Exception:
+        admin_id = 0
+
+    if ctx.author.id != admin_id:
+        await ctx.send("❌ You do not have permission to run this command.")
+        return
+
+    try:
+        results = await load_or_reload_cog(cog_name)
+    except Exception as e:
+        await ctx.send(f"❌ Error loading cog: {e}")
+        return
 
     embed = discord.Embed(
         title="🔄 Cog Reload Command",
@@ -125,30 +131,41 @@ async def reload_cog(ctx, cog_name: str = None):
     total = len(results["success"]) + len(results["reloaded"]) + len(results["failed"])
     embed.set_footer(text=f"Total cogs processed: {total}")
 
-    LOG_CHANNEL = bot.get_channel(settings["LOG_CHANNEL_ID"])
+    LOG_CHANNEL = bot.get_channel(settings.get("LOG_CHANNEL_ID"))
     if LOG_CHANNEL and LOG_CHANNEL.id != ctx.channel.id:
         await LOG_CHANNEL.send(embed=embed)
     await ctx.send(embed=embed)
 
-
-# ---- Shutdown command ----
+# ---- Shutdown command (admin-safe) ----
 @bot.command(name="shutdown")
-@commands.is_owner()
 async def shutdown(ctx):
-    """Safely shuts down the bot."""
-    LOG_CHANNEL = bot.get_channel(settings["LOG_CHANNEL_ID"])
-    
+    try:
+        admin_id = int(settings.get("ADMIN_USER_ID", 0))
+    except Exception:
+        admin_id = 0
+
+    if ctx.author.id != admin_id:
+        await ctx.send("❌ You do not have permission to run this command.")
+        return
+
+    LOG_CHANNEL = bot.get_channel(settings.get("LOG_CHANNEL_ID"))
     if LOG_CHANNEL:
         await LOG_CHANNEL.send("####----Bot is shutting down----####")
         await LOG_CHANNEL.send(f"🛑 Shutdown initiated by: {ctx.author}")
-    
     await ctx.send("Bot is shutting down safely...")
     await bot.close()
 
+# ---- Friendly error handler ----
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You do not have the required permissions to run this command.")
+    else:
+        raise error
 
 # ---- Signal handling for safe shutdown ----
 def handle_exit(*args):
-    LOG_CHANNEL = bot.get_channel(settings["LOG_CHANNEL_ID"])
+    LOG_CHANNEL = bot.get_channel(settings.get("LOG_CHANNEL_ID"))
     if LOG_CHANNEL:
         asyncio.create_task(LOG_CHANNEL.send("⚡ Bot is shutting down due to termination signal."))
     print("💀 Bot terminated via signal.")
@@ -156,7 +173,6 @@ def handle_exit(*args):
 
 signal.signal(signal.SIGINT, handle_exit)
 signal.signal(signal.SIGTERM, handle_exit)
-
 
 # ---- Bot start ----
 async def main():

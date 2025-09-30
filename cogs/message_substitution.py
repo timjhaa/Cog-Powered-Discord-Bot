@@ -9,10 +9,10 @@ class WortErkennung(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message):
         # Ignore Bot messages
-        if message.author == self.bot.user:
+        if message.author == self.bot.user or message.author.bot:
             return
         
-        trigger_wort = "max"
+        trigger_wort = settings["trigger_word"]
         tm = settings["TRIGGER_MESSAGE"]
         #is trigger_word in message
         if trigger_wort in message.content.lower():

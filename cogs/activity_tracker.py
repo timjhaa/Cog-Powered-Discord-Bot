@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands, tasks
 import json
-import asyncio
 from datetime import datetime
 from config import settings
 
@@ -209,6 +208,9 @@ class ActivityTracker(commands.Cog):
 
     async def _generate_leaderboard_embeds(self, activity_data, voice_data, title_prefix=""):
         limit = settings.get("leaderboard_limit", 10)
+        show_avg = "weekly" in title_prefix.lower()
+
+        # Activity leaderboard
         activity_board = []
         for user_id, activities in activity_data.items():
             cleaned_activities = {name: v for name, v in activities.items() if isinstance(v, list)}
@@ -218,15 +220,37 @@ class ActivityTracker(commands.Cog):
             if not user:
                 continue
             total_time = sum(v[0] for v in cleaned_activities.values())
-            daily_avg = total_time / 7
+            daily_avg = total_time / 7 if show_avg else None
             top3 = sorted(cleaned_activities.items(), key=lambda x: x[1][0], reverse=True)[:3]
-            top_text = "\n".join([f"*{name}*: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)" if name.lower() in self.blacklist else f"{name}: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)" for name, v in top3]) if top3 else "No activity"
+            top_text = "\n".join(
+                [f"*{name}*: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)"
+                 if name.lower() in self.blacklist else
+                 f"{name}: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)"
+                 for name, v in top3]
+            ) if top3 else "No activity"
             activity_board.append((total_time, daily_avg, user.display_name, top_text))
-        activity_board.sort(reverse=True, key=lambda x: x[0])
-        embed_activity = discord.Embed(title=f"{title_prefix} Activity Leaderboard", color=discord.Color.orange())
-        for rank, (total_time, daily_avg, name, top_text) in enumerate(activity_board[:limit], start=1):
-            embed_activity.add_field(name=f"#{rank} {name} - Total: {total_time / 3600:.2f} h", value=f"Daily Avg: {daily_avg / 3600:.2f} h\nTop Activities:\n{top_text}", inline=False)
 
+        activity_board.sort(reverse=True, key=lambda x: x[0])
+
+        if show_avg:
+            activity_title = "📊 WEEKLY Activity Leaderboard"
+            voice_title = "🎙️ WEEKLY Voice Leaderboard"
+        else:
+            activity_title = "📊 ALL-TIME Activity Leaderboard"
+            voice_title = "🎙️ ALL-TIME Voice Leaderboard"
+
+        embed_activity = discord.Embed(title=activity_title, color=discord.Color.orange())
+        for rank, (total_time, daily_avg, name, top_text) in enumerate(activity_board[:limit], start=1):
+            value_text = f"Top Activities:\n{top_text}"
+            if show_avg and daily_avg is not None:
+                value_text = f"Daily Avg: {daily_avg / 3600:.2f} h\n" + value_text
+            embed_activity.add_field(
+                name=f"#{rank} {name} - Total: {total_time / 3600:.2f} h",
+                value=value_text,
+                inline=False
+            )
+
+        # Voice leaderboard
         voice_board = []
         for user_id, voice_value in voice_data.items():
             total_voice = voice_value if isinstance(voice_value, int) else voice_value.get("total", 0)
@@ -235,12 +259,16 @@ class ActivityTracker(commands.Cog):
             user = self.bot.get_user(int(user_id))
             if not user:
                 continue
-            daily_avg_voice = total_voice / 7
+            daily_avg_voice = total_voice / 7 if show_avg else None
             voice_board.append((total_voice, daily_avg_voice, user.display_name))
+
         voice_board.sort(reverse=True, key=lambda x: x[0])
-        embed_voice = discord.Embed(title=f"{title_prefix} Voice Leaderboard", color=discord.Color.teal())
+        embed_voice = discord.Embed(title=voice_title, color=discord.Color.teal())
         for rank, (total_voice, daily_avg_voice, name) in enumerate(voice_board[:limit], start=1):
-            embed_voice.add_field(name=f"#{rank} {name}", value=f"Total Voice Time: {total_voice / 3600:.2f} h\nDaily Avg: {daily_avg_voice / 3600:.2f} h", inline=False)
+            value_text = f"Total Voice Time: {total_voice / 3600:.2f} h"
+            if show_avg and daily_avg_voice is not None:
+                value_text += f"\nDaily Avg: {daily_avg_voice / 3600:.2f} h"
+            embed_voice.add_field(name=f"#{rank} {name}", value=value_text, inline=False)
 
         return embed_activity, embed_voice
 
@@ -249,17 +277,14 @@ class ActivityTracker(commands.Cog):
         await ctx_or_channel.send(embeds=[embed_activity, embed_voice])
 
     @commands.command()
-    async def leaderboard(self, ctx, scope: str = "alltime"):
+    async def leaderboard(self, ctx):
         await self._update_active_users_once()
-        if scope.lower() == "weekly":
-            await self.generate_leaderboard(ctx, self.weekly_totals, self.weekly_voice, "Weekly")
-        else:
-            await self.generate_leaderboard(ctx, self.activity_times, self.voice_times, "All-Time")
+        await self.generate_leaderboard(ctx, self.activity_times, self.voice_times, "All-Time")
 
     @commands.command()
     async def weeklytest(self, ctx):
         await self._update_active_users_once()
-        await self.generate_leaderboard(ctx, self.weekly_totals, self.weekly_voice, "Weekly (Test)")
+        await self.generate_leaderboard(ctx, self.weekly_totals, self.weekly_voice, "Weekly")
 
     @commands.command()
     async def stats(self, ctx, member: discord.Member = None):
@@ -270,7 +295,12 @@ class ActivityTracker(commands.Cog):
             return
         activities = self.activity_times.get(user_id, {})
         top3 = sorted(activities.items(), key=lambda x: x[1][0], reverse=True)[:3]
-        top_text = "\n".join([f"*{name}*: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)" if name.lower() in self.blacklist else f"{name}: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)" for name, v in top3]) if top3 else "No activity"
+        top_text = "\n".join(
+            [f"*{name}*: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)"
+             if name.lower() in self.blacklist else
+             f"{name}: {v[0] / 3600:.2f} h (dupl.: {v[1] / 3600:.2f} h)"
+             for name, v in top3]
+        ) if top3 else "No activity"
         voice_data = self.voice_times.get(user_id, {"total": 0, "ongoing_start": None})
         total_voice = voice_data.get("total", 0)
         ongoing_start = voice_data.get("ongoing_start")

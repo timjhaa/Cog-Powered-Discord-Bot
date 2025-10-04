@@ -135,7 +135,7 @@ async def reload_cog(ctx, cog_name: str = None):
     if LOG_CHANNEL and LOG_CHANNEL.id != ctx.channel.id:
         await LOG_CHANNEL.send(embed=embed)
     await ctx.send(embed=embed)
-
+ 
 # ---- Shutdown command (admin-safe) ----
 @bot.command(name="shutdown")
 async def shutdown(ctx):

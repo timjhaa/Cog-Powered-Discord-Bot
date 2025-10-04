@@ -23,7 +23,7 @@ class ActivityTracker(commands.Cog):
 
         self.save_interval = settings.get("save_interval", 60)
         self.update_interval = settings.get("update_interval", 10)
-        self.leaderboard_channel_id = settings["ACTIVITY_CHANNEL_ID"]
+        self.leaderboard_channel_id = settings["LEADERBOARD_CHANNEL_ID"]
 
         self.load_data()
 
@@ -346,18 +346,32 @@ class ActivityTracker(commands.Cog):
 
     # -------------------- Cleanup Messages --------------------
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if not message.guild or message.channel.id != self.leaderboard_channel_id:
-            return
-        if message.author == self.bot.user and message.embeds:
-            if any("Weekly" in embed.title for embed in message.embeds if embed.title):
-                return
-        if message.author != self.bot.user:
-            try:
-                await message.delete(delay=100)
-            except (discord.Forbidden, discord.HTTPException):
-                pass
+@commands.Cog.listener()
+async def on_message(self, message: discord.Message):
+    # Only act in the leaderboard channel
+    if not message.guild or message.channel.id != self.leaderboard_channel_id:
+        return
+
+    # Never delete the Weekly leaderboard embeds
+    if message.author == self.bot.user and message.embeds:
+        if any("Weekly" in embed.title for embed in message.embeds if embed.title):
+            return  # keep weekly embeds forever
+
+    # Handle user messages
+    if message.author != self.bot.user:
+        try:
+            await message.delete(delay=100)  # delete user messages after 100 sec
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        return
+
+    # Handle bot messages (other than Weekly leaderboards)
+    if message.author == self.bot.user:
+        # Delete bot messages (like leaderboard commands or test outputs) after 1 hour
+        try:
+            await message.delete(delay=3600)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
 
 async def setup(bot):
     await bot.add_cog(ActivityTracker(bot))

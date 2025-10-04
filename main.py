@@ -162,7 +162,7 @@ async def on_command_error(ctx, error):
         await ctx.send("❌ You do not have the required permissions to run this command.")
     else:
         raise error
-
+    
 # ---- Signal handling for safe shutdown ----
 def handle_exit(*args):
     LOG_CHANNEL = bot.get_channel(settings.get("LOG_CHANNEL_ID"))

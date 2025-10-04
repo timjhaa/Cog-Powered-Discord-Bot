@@ -5,6 +5,7 @@ class WortErkennung(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+
     # Event Listener for messages
     @commands.Cog.listener()
     async def on_message(self, message):

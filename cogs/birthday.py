@@ -59,7 +59,7 @@ class BirthdayChecker(commands.Cog):
         if lc:
             await lc.send(f"➡️Birthdays checked")
         self.save_birthdays(birthdays)
-
+ 
     @check_birthdays.before_loop
     async def before_check_birthdays(self):
         await self.bot.wait_until_ready()

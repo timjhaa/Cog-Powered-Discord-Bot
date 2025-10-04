@@ -36,6 +36,7 @@ class ErrorHandler(commands.Cog):
         except Exception as e:
             print(f"⚠️ Failed inside on_command_error: {e}")
 
+
     # Global event errors (sync)
     def on_error(self, event_method: str, *args, **kwargs):
         tb = traceback.format_exc() or "No traceback available."

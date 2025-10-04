@@ -14,6 +14,7 @@ class ReactionRoleCog(commands.Cog):
         """Gibt das TextChannel-Objekt zurück"""
         return self.bot.get_channel(self.logchannel_id)
 
+
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
 

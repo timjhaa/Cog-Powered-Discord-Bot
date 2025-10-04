@@ -6,7 +6,8 @@ from config import settings
 
 DATA_FILE = "counter.json"
 
-
+ 
+ 
 class CountingGame(commands.Cog):
     def __init__(self, bot):
         self.bot = bot

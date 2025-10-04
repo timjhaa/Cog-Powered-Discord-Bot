@@ -163,6 +163,7 @@ class General(commands.Cog):
             else:
                 await ctx.send(f"'{key}' ist keine Liste in der Config.")
 
+
     @commands.command()
     async def remlistc(self, ctx, key: str, value: str):
         if self.is_config_channel(ctx):

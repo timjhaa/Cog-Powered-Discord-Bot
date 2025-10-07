@@ -98,7 +98,7 @@ class General(commands.Cog):
             embed.add_field(name="!reload <cog>", value="[RESTRICTED] reloads <cog>, reloads all when no cog is given", inline=False)
             embed.add_field(name="!shutdown", value="[RESTRICTED] shuts the bot down safely", inline=False)
             embed.add_field(name="!backup", value="[RESTRICTED] creates a zip backup of all .json files", inline=False)
-            embed.add_field(name="!weekly", value="[RESTRICTED] creates leaderboard with weekly data", inline=False)
+            embed.add_field(name="!weeklytest", value="[RESTRICTED] creates leaderboard with weekly data", inline=False)
         
         else:
             embed.description = "Hier sind die allgemeinen Bot-Befehle:"

@@ -3,6 +3,8 @@ from discord.ext import commands, tasks
 import json
 from datetime import datetime
 from config import settings
+import os
+import shutil
 
 GAME_KEYWORDS = ["game"]
 
@@ -23,7 +25,7 @@ class ActivityTracker(commands.Cog):
 
         self.save_interval = settings.get("save_interval", 60)
         self.update_interval = settings.get("update_interval", 10)
-        self.leaderboard_channel_id = settings["LEADERBOARD_CHANNEL_ID"]
+        self.leaderboard_channel_id = settings["ACTIVITY_CHANNEL_ID"]
 
         self.load_data()
 
@@ -34,6 +36,7 @@ class ActivityTracker(commands.Cog):
         self.update_ongoing.start()
         self.leaderboard_task.start()
 
+        # Initialize sessions
         self.bot.loop.create_task(self._init_voice_sessions())
         self.bot.loop.create_task(self._init_activities())
 
@@ -59,10 +62,22 @@ class ActivityTracker(commands.Cog):
     async def _init_activities(self):
         await self.bot.wait_until_ready()
         now = current_timestamp()
+        log_channel_id = settings.get("LOG_CHANNEL_ID")
+        log_channel = self.bot.get_channel(log_channel_id) if log_channel_id else None
+
+        # Step 1: Reset all ongoing_start values to None
+        for user_dict in (self.activity_times, self.weekly_totals):
+            for activities in user_dict.values():
+                for stats in activities.values():
+                    stats["ongoing_start"] = None
+
+        # Step 2: Detect all currently running activities
+        recorded = []
         for guild in self.bot.guilds:
             for member in guild.members:
                 if member.bot:
                     continue
+
                 user_id = str(member.id)
                 self.activity_times.setdefault(user_id, {})
                 self.weekly_totals.setdefault(user_id, {})
@@ -70,13 +85,30 @@ class ActivityTracker(commands.Cog):
                 current_activities = {
                     getattr(act, "name", str(act))
                     for act in member.activities
-                    if act.type != discord.ActivityType.custom
+                    if act and act.type != discord.ActivityType.custom
                 }
+
+                if not current_activities:
+                    continue
 
                 for act_name in current_activities:
                     for data in (self.activity_times[user_id], self.weekly_totals[user_id]):
                         data.setdefault(act_name, {"main": 0, "duplicate": 0, "ongoing_start": now})
                         data[act_name]["ongoing_start"] = now
+                    recorded.append((member.display_name, act_name))
+
+        # Step 3: Log results
+        if log_channel:
+            if recorded:
+                msg = "\n".join([f"• **{user}** - {act}" for user, act in recorded])
+                await log_channel.send(
+                    f"🟢 **Startup Activity Tracking Initialized**\n"
+                    f"Detected and updated ongoing activities ({len(recorded)}):\n{msg}"
+                )
+            else:
+                await log_channel.send("🟢 Startup complete — no ongoing activities detected.")
+        else:
+            print("[Startup] No log channel configured in settings (LOG_CHANNEL_ID missing).")
 
     def _init_voice(self, user_id, now):
         self.voice_times.setdefault(user_id, {"total": 0, "ongoing_start": now})
@@ -121,12 +153,12 @@ class ActivityTracker(commands.Cog):
 
     # -------------------- Tasks --------------------
 
-    @tasks.loop(seconds=60)  # placeholder, set dynamically in __init__
+    @tasks.loop(seconds=60)
     async def auto_save(self):
         await self.bot.wait_until_ready()
         self.save_data()
 
-    @tasks.loop(seconds=10)  # placeholder, set dynamically in __init__
+    @tasks.loop(seconds=10)
     async def update_ongoing(self):
         await self.bot.wait_until_ready()
         await self._update_active_users_once()
@@ -141,7 +173,9 @@ class ActivityTracker(commands.Cog):
                 if start is None:
                     continue
                 elapsed = now - start
-                target_dict = self.activity_times.setdefault(user_id, {}).setdefault(act_name, {"main": 0, "duplicate": 0, "ongoing_start": now})
+                target_dict = self.activity_times.setdefault(user_id, {}).setdefault(
+                    act_name, {"main": 0, "duplicate": 0, "ongoing_start": now}
+                )
                 if act_name.lower() in self.blacklist:
                     stats["duplicate"] += elapsed
                     target_dict["duplicate"] += elapsed
@@ -161,27 +195,6 @@ class ActivityTracker(commands.Cog):
             weekly_data["total"] += elapsed
             data["ongoing_start"] = weekly_data["ongoing_start"] = now
 
-    # -------------------- Activity Update Helpers --------------------
-
-    def _update_activity_on_change(self, user_id, acts, start=True):
-        now = current_timestamp()
-        self.activity_times.setdefault(user_id, {})
-        self.weekly_totals.setdefault(user_id, {})
-        for act_name in acts:
-            for data in (self.activity_times[user_id], self.weekly_totals[user_id]):
-                entry = data.setdefault(act_name, {"main": 0, "duplicate": 0, "ongoing_start": None})
-                if start:
-                    entry["ongoing_start"] = now
-                else:
-                    ongoing = entry.get("ongoing_start")
-                    if ongoing:
-                        elapsed = now - ongoing
-                        if act_name.lower() in self.blacklist:
-                            entry["duplicate"] += elapsed
-                        else:
-                            entry["main"] += elapsed
-                    entry["ongoing_start"] = None
-
     # -------------------- Event Listeners --------------------
 
     @commands.Cog.listener()
@@ -193,6 +206,25 @@ class ActivityTracker(commands.Cog):
         new_acts = {getattr(a, "name", str(a)) for a in after.activities if a.type != discord.ActivityType.custom}
         self._update_activity_on_change(user_id, new_acts - old_acts, start=True)
         self._update_activity_on_change(user_id, old_acts - new_acts, start=False)
+
+    def _update_activity_on_change(self, user_id, activities, start=True):
+        now = current_timestamp()
+        self.activity_times.setdefault(user_id, {})
+        self.weekly_totals.setdefault(user_id, {})
+        for act_name in activities:
+            for data in (self.activity_times[user_id], self.weekly_totals[user_id]):
+                entry = data.setdefault(act_name, {"main": 0, "duplicate": 0, "ongoing_start": None})
+                if start:
+                    entry["ongoing_start"] = now
+                else:
+                    start_time = entry.get("ongoing_start")
+                    if start_time:
+                        elapsed = now - start_time
+                        if act_name.lower() in self.blacklist:
+                            entry["duplicate"] += elapsed
+                        else:
+                            entry["main"] += elapsed
+                        entry["ongoing_start"] = None
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -225,42 +257,73 @@ class ActivityTracker(commands.Cog):
         self.voice_times[user_id]["ongoing_start"] = ongoing
         self.weekly_voice[user_id]["ongoing_start"] = ongoing
 
-    # -------------------- Leaderboard Task --------------------
+    # -------------------- Backup + Leaderboard --------------------
 
     @tasks.loop(minutes=60)
     async def leaderboard_task(self):
         now = datetime.utcnow()
-        if now.weekday() == 6 and now.hour == 0:
+        if now.weekday() == 6 and now.hour == 0:  # Sunday 00:00 UTC
             channel = self.bot.get_channel(self.leaderboard_channel_id)
             if channel:
                 await self._update_active_users_once()
+
+                backup_dir = os.path.join(os.path.dirname(__file__), "weekly_backup")
+                os.makedirs(backup_dir, exist_ok=True)
+                existing = [f for f in os.listdir(backup_dir) if f.startswith("weekly_data_")]
+                index = len(existing) + 1
+
+                date_str = now.strftime("%d_%m_%Y")
+                backup_name = f"weekly_data_{index}_{date_str}.json"
+                backup_path = os.path.join(backup_dir, backup_name)
+
+                try:
+                    shutil.copy2(self.weekly_file, backup_path)
+                    print(f"[Backup] Created weekly backup: {backup_name}")
+                except Exception as e:
+                    print(f"[Backup] Failed to create backup: {e}")
+
                 await self.generate_leaderboard(channel, self.weekly_totals, self.weekly_voice, "Weekly")
                 self.weekly_totals = {}
                 self.weekly_voice = {}
                 self.save_data()
+
+    @commands.command()
+    async def backupweekly(self, ctx):
+        now = datetime.utcnow()
+        backup_dir = os.path.join(os.path.dirname(__file__), "weekly_backup")
+        os.makedirs(backup_dir, exist_ok=True)
+        existing = [f for f in os.listdir(backup_dir) if f.startswith("weekly_data_")]
+        index = len(existing) + 1
+        date_str = now.strftime("%d_%m_%Y")
+        backup_name = f"weekly_data_{index}_{date_str}.json"
+        backup_path = os.path.join(backup_dir, backup_name)
+        try:
+            shutil.copy2(self.weekly_file, backup_path)
+            await ctx.send(f"✅ Backup created: `{backup_name}`", delete_after=30)
+        except Exception as e:
+            await ctx.send(f"❌ Backup failed: {e}", delete_after=30)
 
     # -------------------- Leaderboard / Stats --------------------
 
     async def _generate_leaderboard_embeds(self, activity_data, voice_data, title_prefix=""):
         limit = settings.get("leaderboard_limit", 10)
         show_avg = "weekly" in title_prefix.lower()
-
         activity_board = []
         for user_id, activities in activity_data.items():
             user = self.bot.get_user(int(user_id))
             if not user:
                 continue
-            cleaned_activities = {n: v for n, v in activities.items() if isinstance(v, dict)}
-            if not cleaned_activities:
+            cleaned = {n: v for n, v in activities.items() if isinstance(v, dict)}
+            if not cleaned:
                 continue
-            total_time = sum(v["main"] for v in cleaned_activities.values())
+            total_time = sum(v["main"] for v in cleaned.values())
             daily_avg = total_time / 7 if show_avg else None
-            top3 = sorted(cleaned_activities.items(), key=lambda x: x[1]["main"], reverse=True)[:3]
+            top3 = sorted(cleaned.items(), key=lambda x: x[1]["main"], reverse=True)[:3]
             top_text = "\n".join(
-                [f"*{name}*: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
-                 if name.lower() in self.blacklist else
-                 f"{name}: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
-                 for name, v in top3]
+                [f"*{n}*: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
+                 if n.lower() in self.blacklist else
+                 f"{n}: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
+                 for n, v in top3]
             ) if top3 else "No activity"
             activity_board.append((total_time, daily_avg, user.display_name, top_text))
 
@@ -269,43 +332,42 @@ class ActivityTracker(commands.Cog):
             title="📊 WEEKLY Activity Leaderboard" if show_avg else "📊 ALL-TIME Activity Leaderboard",
             color=discord.Color.orange()
         )
-        for rank, (total_time, daily_avg, name, top_text) in enumerate(activity_board[:limit], start=1):
-            value_text = f"Top Activities:\n{top_text}"
-            if show_avg and daily_avg is not None:
-                value_text = f"Daily Avg: {daily_avg/3600:.2f} h\n" + value_text
+        for rank, (total, avg, name, text) in enumerate(activity_board[:limit], start=1):
+            val = f"Top Activities:\n{text}"
+            if show_avg and avg:
+                val = f"Daily Avg: {avg/3600:.2f} h\n" + val
             embed_activity.add_field(
-                name=f"#{rank} {name} - Total: {total_time/3600:.2f} h",
-                value=value_text,
-                inline=False
+                name=f"#{rank} {name} - Total: {total/3600:.2f} h", value=val, inline=False
             )
 
+        # Voice leaderboard
         voice_board = []
-        for user_id, voice_val in voice_data.items():
+        for user_id, v in voice_data.items():
             user = self.bot.get_user(int(user_id))
             if not user:
                 continue
-            total_voice = voice_val.get("total", 0) if isinstance(voice_val, dict) else voice_val
-            if total_voice == 0:
+            total = v.get("total", 0)
+            if total == 0:
                 continue
-            daily_avg_voice = total_voice / 7 if show_avg else None
-            voice_board.append((total_voice, daily_avg_voice, user.display_name))
+            avg = total / 7 if show_avg else None
+            voice_board.append((total, avg, user.display_name))
 
         voice_board.sort(reverse=True, key=lambda x: x[0])
         embed_voice = discord.Embed(
             title="🎙️ WEEKLY Voice Leaderboard" if show_avg else "🎙️ ALL-TIME Voice Leaderboard",
             color=discord.Color.teal()
         )
-        for rank, (total_voice, daily_avg_voice, name) in enumerate(voice_board[:limit], start=1):
-            value_text = f"Total Voice Time: {total_voice/3600:.2f} h"
-            if show_avg and daily_avg_voice is not None:
-                value_text += f"\nDaily Avg: {daily_avg_voice/3600:.2f} h"
-            embed_voice.add_field(name=f"#{rank} {name}", value=value_text, inline=False)
+        for rank, (total, avg, name) in enumerate(voice_board[:limit], start=1):
+            val = f"Total Voice Time: {total/3600:.2f} h"
+            if show_avg and avg:
+                val += f"\nDaily Avg: {avg/3600:.2f} h"
+            embed_voice.add_field(name=f"#{rank} {name}", value=val, inline=False)
 
         return embed_activity, embed_voice
 
     async def generate_leaderboard(self, ctx_or_channel, activity_data, voice_data, title_prefix=""):
-        embed_activity, embed_voice = await self._generate_leaderboard_embeds(activity_data, voice_data, title_prefix)
-        await ctx_or_channel.send(embeds=[embed_activity, embed_voice])
+        embed_a, embed_v = await self._generate_leaderboard_embeds(activity_data, voice_data, title_prefix)
+        await ctx_or_channel.send(embeds=[embed_a, embed_v])
 
     @commands.command()
     async def leaderboard(self, ctx):
@@ -326,19 +388,16 @@ class ActivityTracker(commands.Cog):
         if not activities and not voice_data:
             await ctx.send(f"No stats found for {member.display_name}.", delete_after=3600)
             return
-
-        all_activities = sorted(activities.items(), key=lambda x: x[1]["main"], reverse=True)
+        all_acts = sorted(activities.items(), key=lambda x: x[1]["main"], reverse=True)
         top_text = "\n".join(
-            [f"*{name}*: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
-            if name.lower() in self.blacklist else
-            f"{name}: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
-            for name, v in all_activities]
-        ) if all_activities else "No activity"
-
+            [f"*{n}*: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
+             if n.lower() in self.blacklist else
+             f"{n}: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
+             for n, v in all_acts]
+        ) if all_acts else "No activity"
         total_voice = voice_data.get("total", 0)
         if voice_data.get("ongoing_start"):
             total_voice += current_timestamp() - voice_data["ongoing_start"]
-
         embed = discord.Embed(title=f"Stats for {member.display_name}", color=discord.Color.blue())
         embed.add_field(name="Top Activities", value=top_text, inline=False)
         embed.add_field(name="Total Voice Time", value=f"{total_voice/3600:.2f} h", inline=False)
@@ -346,32 +405,24 @@ class ActivityTracker(commands.Cog):
 
     # -------------------- Cleanup Messages --------------------
 
-@commands.Cog.listener()
-async def on_message(self, message: discord.Message):
-    # Only act in the leaderboard channel
-    if not message.guild or message.channel.id != self.leaderboard_channel_id:
-        return
-
-    # Never delete the Weekly leaderboard embeds
-    if message.author == self.bot.user and message.embeds:
-        if any("Weekly" in embed.title for embed in message.embeds if embed.title):
-            return  # keep weekly embeds forever
-
-    # Handle user messages
-    if message.author != self.bot.user:
-        try:
-            await message.delete(delay=100)  # delete user messages after 100 sec
-        except (discord.Forbidden, discord.HTTPException):
-            pass
-        return
-
-    # Handle bot messages (other than Weekly leaderboards)
-    if message.author == self.bot.user:
-        # Delete bot messages (like leaderboard commands or test outputs) after 1 hour
-        try:
-            await message.delete(delay=3600)
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.channel.id != self.leaderboard_channel_id:
+            return
+        if message.author == self.bot.user and message.embeds:
+            if any("Weekly" in e.title for e in message.embeds if e.title):
+                return
+        if message.author != self.bot.user:
+            try:
+                await message.delete(delay=100)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+            return
+        if message.author == self.bot.user:
+            try:
+                await message.delete(delay=3600)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
 
 async def setup(bot):
     await bot.add_cog(ActivityTracker(bot))

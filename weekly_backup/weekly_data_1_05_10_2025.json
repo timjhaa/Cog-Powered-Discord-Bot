@@ -1,0 +1,293 @@
+{
+    "activity_times": {
+        "462520121433391104": {
+            "League of Legends": {
+                "main": 23428,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Spotify": {
+                "main": 0,
+                "duplicate": 127451,
+                "ongoing_start": null
+            },
+            "Honkai: Star Rail": {
+                "main": 7059,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "2XKO": {
+                "main": 1695,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Among Us": {
+                "main": 2295,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Roblox": {
+                "main": 4623,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "611214083227910144": {
+            "Minecraft": {
+                "main": 2640,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Spotify": {
+                "main": 0,
+                "duplicate": 26805,
+                "ongoing_start": null
+            },
+            "Among Us": {
+                "main": 11236,
+                "duplicate": 242,
+                "ongoing_start": null
+            },
+            "Roblox": {
+                "main": 19841,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "659490057207545886": {},
+        "681888551981547563": {
+            "Wordle": {
+                "main": 1153,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "CurseForge": {
+                "main": 6099,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "GregTech : New Horizons": {
+                "main": 55009,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Smashing Simulator Idle": {
+                "main": 7547,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Balatro": {
+                "main": 297,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Slime Rancher 2": {
+                "main": 8000,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "695664955676164126": {
+            "WorldBox - God Simulator": {
+                "main": 353,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "WorldBox": {
+                "main": 6198,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Wordle": {
+                "main": 2023,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Among Us": {
+                "main": 11809,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "777235901369417738": {},
+        "790309560862769172": {
+            "League of Legends": {
+                "main": 316030,
+                "duplicate": 0,
+                "ongoing_start": 1759652103
+            },
+            "Among Us": {
+                "main": 5990,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "924393614530977823": {
+            "Spotify": {
+                "main": 0,
+                "duplicate": 24233,
+                "ongoing_start": null
+            }
+        },
+        "932291645045604354": {
+            "Wordle": {
+                "main": 382,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "1016727053858525215": {},
+        "1030538918719926323": {
+            "CurseForge": {
+                "main": 6411,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Spotify": {
+                "main": 0,
+                "duplicate": 32277,
+                "ongoing_start": null
+            },
+            "BeamNG.drive": {
+                "main": 9930,
+                "duplicate": 20,
+                "ongoing_start": null
+            },
+            "Rocket League": {
+                "main": 7882,
+                "duplicate": 340,
+                "ongoing_start": null
+            },
+            "Modrinth": {
+                "main": 11146,
+                "duplicate": 965,
+                "ongoing_start": null
+            },
+            "Minecraft": {
+                "main": 7251,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Roblox": {
+                "main": 239,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "PEAK": {
+                "main": 8437,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "BlueStacks 5": {
+                "main": 314,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "1185922651831677008": {
+            "Wordle": {
+                "main": 1645,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "War Thunder": {
+                "main": 386,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Minecraft": {
+                "main": 78318,
+                "duplicate": 0,
+                "ongoing_start": 1759652103
+            }
+        },
+        "1192148781580439603": {
+            "Wordle": {
+                "main": 1626,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Spotify": {
+                "main": 0,
+                "duplicate": 6443,
+                "ongoing_start": null
+            },
+            "Minecraft": {
+                "main": 10486,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "CurseForge": {
+                "main": 2093,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "1307762337499058187": {
+            "Modrinth": {
+                "main": 9150,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Spotify": {
+                "main": 0,
+                "duplicate": 28193,
+                "ongoing_start": null
+            },
+            "Wordle": {
+                "main": 2267,
+                "duplicate": 74,
+                "ongoing_start": null
+            },
+            "Fortnite": {
+                "main": 3239,
+                "duplicate": 0,
+                "ongoing_start": null
+            },
+            "Farming Simulator 25": {
+                "main": 1413,
+                "duplicate": 0,
+                "ongoing_start": null
+            }
+        },
+        "1397969953516163245": {}
+    },
+    "voice_times": {
+        "681888551981547563": {
+            "total": 11446,
+            "ongoing_start": null
+        },
+        "1192148781580439603": {
+            "total": 10509,
+            "ongoing_start": null
+        },
+        "1016727053858525215": {
+            "total": 11994,
+            "ongoing_start": null
+        },
+        "1030538918719926323": {
+            "total": 6,
+            "ongoing_start": null
+        },
+        "932291645045604354": {
+            "total": 8450,
+            "ongoing_start": null
+        },
+        "1307762337499058187": {
+            "total": 11977,
+            "ongoing_start": null
+        },
+        "1185922651831677008": {
+            "total": 9828,
+            "ongoing_start": null
+        },
+        "659490057207545886": {
+            "total": 68437,
+            "ongoing_start": null
+        },
+        "790309560862769172": {
+            "total": 56678,
+            "ongoing_start": null
+        }
+    }
+}

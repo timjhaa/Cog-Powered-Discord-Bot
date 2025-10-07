@@ -8,7 +8,7 @@ GAME_KEYWORDS = ["game"]
 
 def current_timestamp():
     return int(datetime.utcnow().timestamp())
-
+ 
 class ActivityTracker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -314,6 +314,10 @@ class ActivityTracker(commands.Cog):
 
     @commands.command()
     async def weeklytest(self, ctx):
+        ADMIN_USER_ID = int(settings["ADMIN_USER_ID"])
+        if ctx.author.id != ADMIN_USER_ID:
+            await ctx.send("⛔ You don't have permission to use this command.", delete_after=5)
+            return
         await self._update_active_users_once()
         await self.generate_leaderboard(ctx, self.weekly_totals, self.weekly_voice, "Weekly")
 

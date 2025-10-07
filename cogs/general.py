@@ -5,6 +5,10 @@ import ast
 from config import save_config
 from config import settings as config
 import asyncio
+import os
+import shutil
+from datetime import datetime
+import zipfile
 
 class General(commands.Cog):
     def __init__(self, bot):
@@ -25,11 +29,8 @@ class General(commands.Cog):
             await ctx.send("⛔ You don't have permission to use this command.", delete_after=5)
             return
 
-        # Clamp between 1 and 100
         amount = min(max(amount, 1), 100)
-
-        # Fetch messages using async iteration (no flatten)
-        messages = [msg async for msg in ctx.channel.history(limit=amount + 1)]  # +1 to include command message
+        messages = [msg async for msg in ctx.channel.history(limit=amount + 1)]
 
         deleted_count = 0
         for msg in messages:
@@ -74,7 +75,6 @@ class General(commands.Cog):
             await ctx.send("------------")
             await ctx.send("Riot-Games")
 
-    # ---- Bot Config Commands ----
     def is_config_channel(self, ctx):
         return ctx.channel.id == config["CONFIG_CHANNEL_ID"]
 
@@ -97,6 +97,9 @@ class General(commands.Cog):
             embed.add_field(name="!clear <amount>", value="[RESTRICTED] deletes <amount> messages in the current channel, max 100", inline=False)
             embed.add_field(name="!reload <cog>", value="[RESTRICTED] reloads <cog>, reloads all when no cog is given", inline=False)
             embed.add_field(name="!shutdown", value="[RESTRICTED] shuts the bot down safely", inline=False)
+            embed.add_field(name="!backup", value="[RESTRICTED] creates a zip backup of all .json files", inline=False)
+            embed.add_field(name="!weekly", value="[RESTRICTED] creates leaderboard with weekly data", inline=False)
+        
         else:
             embed.description = "Hier sind die allgemeinen Bot-Befehle:"
             embed.add_field(name="!echo <nachricht>", value="Bot wiederholt deine Nachricht", inline=False)
@@ -163,7 +166,6 @@ class General(commands.Cog):
             else:
                 await ctx.send(f"'{key}' ist keine Liste in der Config.")
 
-
     @commands.command()
     async def remlistc(self, ctx, key: str, value: str):
         if self.is_config_channel(ctx):
@@ -181,6 +183,44 @@ class General(commands.Cog):
     async def showc(self, ctx):
         if self.is_config_channel(ctx):
             await ctx.send("```json\n" + json.dumps(config, indent=4, ensure_ascii=False) + "```")
+
+    # ---- BACKUP COMMAND ----
+    @commands.command()
+    async def backup(self, ctx):
+        ADMIN_USER_ID = int(config["ADMIN_USER_ID"])
+        if ctx.author.id != ADMIN_USER_ID:
+            await ctx.send("⛔ You don't have permission to use this command.", delete_after=5)
+            return
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # parent of /cogs
+        cog_dir = os.path.join(base_dir, "cogs")
+        backup_root = os.path.join(base_dir, "backups")
+        os.makedirs(backup_root, exist_ok=True)
+
+        temp_folder = os.path.join(backup_root, f"backup_{timestamp}")
+        os.makedirs(temp_folder, exist_ok=True)
+
+        # Collect JSON files from / and /cogs
+        json_files = []
+        for folder in [base_dir, cog_dir]:
+            for file in os.listdir(folder):
+                if file.endswith(".json"):
+                    src_path = os.path.join(folder, file)
+                    dest_path = os.path.join(temp_folder, f"{file}")
+                    shutil.copy2(src_path, dest_path)
+                    json_files.append(file)
+
+        # Create ZIP
+        zip_filename = os.path.join(backup_root, f"backup_{timestamp}.zip")
+        with zipfile.ZipFile(zip_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for file in os.listdir(temp_folder):
+                zipf.write(os.path.join(temp_folder, file), arcname=file)
+
+        # Cleanup temp folder
+        shutil.rmtree(temp_folder)
+
+        await ctx.send(f"✅ Backup erstellt: `{os.path.basename(zip_filename)}` mit {len(json_files)} Dateien.")
 
 async def setup(bot):
     await bot.add_cog(General(bot))

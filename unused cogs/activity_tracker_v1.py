@@ -8,6 +8,11 @@ import shutil
 
 GAME_KEYWORDS = ["game"]
 
+#This does the same as activity_tracker_v2, but uses another system for the weekly Leaderboard. 
+#Here the weekly data is safed in an weekly_data.json files seperatly and this file is updated alongside the alltime-activity data and reset every week.
+
+
+
 def current_timestamp():
     return int(datetime.utcnow().timestamp())
 

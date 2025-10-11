@@ -4,6 +4,13 @@ birthdays.json
 __pycache__
 activity_data.json
 weekly_data.json
+<<<<<<< HEAD
 weekly_backup/
 __pycache__/
 *.log
+=======
+discord.log
+weekly_backup/
+backups/
+weekly_backup_total.json
+>>>>>>> dev

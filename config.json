@@ -9,11 +9,37 @@
     "BIRTHDAY_CHANNEL_ID": 1308124335084535888,
     "ACTIVITY_CHANNEL_ID": 1421440714314743818,
     "ADMIN_USER_ID": 681888551981547563,
+<<<<<<< HEAD
+=======
+    "LEADERBOARD_CHANNEL_ID": 1421440714314743818,
+    "STATUS": [
+        0,
+        [
+            "online",
+            "idle",
+            "dnd",
+            "offline"
+        ]
+    ],
+    "ACTIVITY": "!help",
+    "ACTIVITY_TYPE": [
+        0,
+        [
+            "playing",
+            "listening",
+            "watching",
+            "streaming",
+            "competing"
+        ]
+    ],
+>>>>>>> dev
     "TRIGGER_MESSAGE": "https://tenor.com/view/beaker-muppets-fire-oops-panicking-gif-16444171",
     "trigger_word": "max",
     "BIRTHDAY_MESSAGE": "https://tenor.com/view/happy-birthday-bon-anniversaire-birthday-cake-birthday-birthday-fiesta-gif-12707264612877386805",
     "leaderboard_limit": 30,
     "activity_blacklist": [
-        "Spotify"
-    ]
+        "Spotify",
+        "Wallpaper Engine"
+    ],
+    "test": 100
 }

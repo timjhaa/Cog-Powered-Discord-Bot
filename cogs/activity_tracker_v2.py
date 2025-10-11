@@ -272,6 +272,30 @@ class ActivityTracker(commands.Cog):
             {"activity_times": self.activity_times, "voice_times": self.voice_times}, baseline
         )
         await self.generate_leaderboard(ctx, weekly_activities, weekly_voice, alltime=False)
+        
+    @commands.command()
+    async def stats(self, ctx, member: discord.Member = None):
+        member = member or ctx.author
+        user_id = str(member.id)
+        activities = self.activity_times.get(user_id, {})
+        voice_data = self.voice_times.get(user_id, {"total": 0, "ongoing_start": None})
+        if not activities and not voice_data:
+            await ctx.send(f"No stats found for {member.display_name}.", delete_after=3600)
+            return
+        all_acts = sorted(activities.items(), key=lambda x: x[1]["main"], reverse=True)
+        top_text = "\n".join(
+            [f"*{n}*: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
+             if n.lower() in self.blacklist else
+             f"{n}: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)"
+             for n, v in all_acts]
+        ) if all_acts else "No activity"
+        total_voice = voice_data.get("total", 0)
+        if voice_data.get("ongoing_start"):
+            total_voice += current_timestamp() - voice_data["ongoing_start"]
+        embed = discord.Embed(title=f"Stats for {member.display_name}", color=discord.Color.blue())
+        embed.add_field(name="Top Activities", value=top_text, inline=False)
+        embed.add_field(name="Total Voice Time", value=f"{total_voice/3600:.2f} h", inline=False)
+        await ctx.send(embed=embed, delete_after=3600)
 
     # -------------------- Weekly Leaderboard Task --------------------
     @tasks.loop(minutes=10)

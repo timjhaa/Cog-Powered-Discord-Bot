@@ -4,7 +4,6 @@ import json
 from datetime import datetime, timedelta
 from config import settings
 import os
-import shutil
 import pytz
 
 GAME_KEYWORDS = ["game"]
@@ -199,22 +198,46 @@ class ActivityTracker(commands.Cog):
         return weekly_activities, weekly_voice
 
     # -------------------- Leaderboard Embeds --------------------
-    async def _generate_leaderboard_embeds(self, activity_data, voice_data, title_prefix=""):
+    async def _generate_alltime_leaderboard_embeds(self, activity_data, voice_data):
         limit = settings.get("leaderboard_limit", 10)
-        embed_a = discord.Embed(title="📊 WEEKLY Activity Leaderboard", color=discord.Color.orange())
+        embed_a = discord.Embed(title="📊 All-Time Activity Leaderboard", color=discord.Color.orange())
         sorted_users = sorted(activity_data.items(), key=lambda x: sum(v["main"] for v in x[1].values()), reverse=True)[:limit]
 
         for rank, (uid, acts) in enumerate(sorted_users, start=1):
             user = self.bot.get_user(int(uid))
             name = user.display_name if user else uid
             total_main = sum(v["main"] for v in acts.values())
-            daily_avg = total_main / 7 / 3600
+            top_acts = sorted(acts.items(), key=lambda x: x[1]["main"], reverse=True)[:3]
+            act_text = "\n".join([f"{act}: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)" for act, v in top_acts])
+            embed_a.add_field(name=f"#{rank} {name} - Total: {total_main/3600:.2f} h",
+                              value=f"Top Activities:\n{act_text}", inline=False)
+
+        embed_v = discord.Embed(title="🎙️ All-Time Voice Leaderboard", color=discord.Color.teal())
+        sorted_voice = sorted(voice_data.items(), key=lambda x: x[1]["total"], reverse=True)[:limit]
+        for rank, (uid, v) in enumerate(sorted_voice, start=1):
+            user = self.bot.get_user(int(uid))
+            name = user.display_name if user else uid
+            total = v["total"]
+            embed_v.add_field(name=f"#{rank} {name} - Total: {total/3600:.2f} h", value="", inline=False)
+
+        return embed_a, embed_v
+
+    async def _generate_weekly_leaderboard_embeds(self, activity_data, voice_data):
+        limit = settings.get("leaderboard_limit", 10)
+        embed_a = discord.Embed(title="📊 Weekly Activity Leaderboard", color=discord.Color.orange())
+        sorted_users = sorted(activity_data.items(), key=lambda x: sum(v["main"] for v in x[1].values()), reverse=True)[:limit]
+
+        for rank, (uid, acts) in enumerate(sorted_users, start=1):
+            user = self.bot.get_user(int(uid))
+            name = user.display_name if user else uid
+            total_main = sum(v["main"] for v in acts.values())
+            daily_avg = total_main / 7 / 3600  # DAILY AVERAGE
             top_acts = sorted(acts.items(), key=lambda x: x[1]["main"], reverse=True)[:3]
             act_text = "\n".join([f"{act}: {v['main']/3600:.2f} h (dupl.: {v['duplicate']/3600:.2f} h)" for act, v in top_acts])
             embed_a.add_field(name=f"#{rank} {name} - Total: {total_main/3600:.2f} h",
                               value=f"Daily Avg: {daily_avg:.2f} h\nTop Activities:\n{act_text}", inline=False)
 
-        embed_v = discord.Embed(title="🎙️ WEEKLY Voice Leaderboard", color=discord.Color.teal())
+        embed_v = discord.Embed(title="🎙️ Weekly Voice Leaderboard", color=discord.Color.teal())
         sorted_voice = sorted(voice_data.items(), key=lambda x: x[1]["total"], reverse=True)[:limit]
         for rank, (uid, v) in enumerate(sorted_voice, start=1):
             user = self.bot.get_user(int(uid))
@@ -223,26 +246,32 @@ class ActivityTracker(commands.Cog):
             daily_avg = total / 7 / 3600
             embed_v.add_field(name=f"#{rank} {name} - Total: {total/3600:.2f} h",
                               value=f"Daily Avg: {daily_avg:.2f} h", inline=False)
+
         return embed_a, embed_v
 
-    async def generate_leaderboard(self, ctx_or_channel, activity_data, voice_data):
-        embed_a, embed_v = await self._generate_leaderboard_embeds(activity_data, voice_data)
+    async def generate_leaderboard(self, ctx_or_channel, activity_data, voice_data, alltime=True):
+        if alltime:
+            embed_a, embed_v = await self._generate_alltime_leaderboard_embeds(activity_data, voice_data)
+        else:
+            embed_a, embed_v = await self._generate_weekly_leaderboard_embeds(activity_data, voice_data)
         await ctx_or_channel.send(embeds=[embed_a, embed_v])
 
     # -------------------- Commands --------------------
     @commands.command()
+    async def leaderboard(self, ctx):
+        """All-Time Leaderboard"""
+        await self._update_active_users_once()
+        await self.generate_leaderboard(ctx, self.activity_times, self.voice_times, alltime=True)
+
+    @commands.command()
     async def weeklytest(self, ctx):
+        """Weekly Leaderboard with Daily Average"""
         await self._update_active_users_once()
         baseline = self._load_or_recalculate_baseline()
         weekly_activities, weekly_voice = self._calculate_weekly_difference(
             {"activity_times": self.activity_times, "voice_times": self.voice_times}, baseline
         )
-        await self.generate_leaderboard(ctx, weekly_activities, weekly_voice)
-
-    @commands.command()
-    async def leaderboard(self, ctx):
-        await self._update_active_users_once()
-        await self.generate_leaderboard(ctx, self.activity_times, self.voice_times)
+        await self.generate_leaderboard(ctx, weekly_activities, weekly_voice, alltime=False)
 
     # -------------------- Weekly Leaderboard Task --------------------
     @tasks.loop(minutes=10)
@@ -268,12 +297,12 @@ class ActivityTracker(commands.Cog):
                 except Exception as e:
                     print(f"[weekly] Backup failed: {e}")
 
-                # Compute leaderboard
+                # Compute weekly leaderboard
                 baseline = self._load_or_recalculate_baseline()
                 weekly_activities, weekly_voice = self._calculate_weekly_difference(
                     {"activity_times": self.activity_times, "voice_times": self.voice_times}, baseline
                 )
-                await self.generate_leaderboard(channel, weekly_activities, weekly_voice)
+                await self.generate_leaderboard(channel, weekly_activities, weekly_voice, alltime=False)
 
                 # Reset weekly totals
                 for uid in self.activity_times:

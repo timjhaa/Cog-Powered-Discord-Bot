@@ -62,6 +62,39 @@ async def load_or_reload_cog(cog_name: str = None):
     print(f"Loaded: {success}, Reloaded: {reloaded}, Failed: {failed}")
     return {"success": success, "reloaded": reloaded, "failed": failed}
 
+# ---- Helper to update presence ----
+async def update_presence():
+    # STATUS
+    status_config = settings.get("STATUS", [0, ["online", "idle", "dnd", "offline"]])
+    status_index = status_config[0] if isinstance(status_config, list) and len(status_config) == 2 else 0
+    status_list = status_config[1] if isinstance(status_config, list) and len(status_config) == 2 else ["online"]
+    status_str = status_list[status_index] if 0 <= status_index < len(status_list) else "online"
+    discord_status = getattr(discord.Status, status_str.lower(), discord.Status.online)
+
+    # ACTIVITY_TYPE
+    type_config = settings.get("ACTIVITY_TYPE", [0, ["playing"]])
+    type_index = type_config[0] if isinstance(type_config, list) and len(type_config) == 2 else 0
+    type_list = type_config[1] if isinstance(type_config, list) and len(type_config) == 2 else ["playing"]
+    type_str = type_list[type_index] if 0 <= type_index < len(type_list) else "playing"
+    type_enum_map = {
+        "playing": discord.ActivityType.playing,
+        "listening": discord.ActivityType.listening,
+        "watching": discord.ActivityType.watching,
+        "streaming": discord.ActivityType.streaming,
+        "competing": discord.ActivityType.competing
+    }
+    activity_type_enum = type_enum_map.get(type_str.lower(), discord.ActivityType.playing)
+
+    # ACTIVITY string
+    activity_name = settings.get("ACTIVITY", "!help")
+    if not isinstance(activity_name, str) or not activity_name:
+        activity_name = "!help"
+
+    activity = discord.Activity(type=activity_type_enum, name=activity_name)
+
+    await bot.change_presence(status=discord_status, activity=activity)
+
+
 # ---- Bot events ----
 @bot.event
 async def on_ready():
@@ -74,9 +107,14 @@ async def on_ready():
         await LOG_CHANNEL.send(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
         await LOG_CHANNEL.send("------")
 
-    activity = discord.Game(name="!help")
-    await bot.change_presence(status=discord.Status.online, activity=activity)
-    
+    # ---- Set bot presence from STATUS, ACTIVITY_TYPE, and ACTIVITY ----
+    try:
+        await update_presence()
+    except Exception as e:
+        print(f"⚠️ Failed to set presence on startup: {e}")
+        await bot.change_presence(status=discord.Status.dnd, activity=discord.Game(name="presenceerror"))
+
+    # ---- Load/reload cogs ----
     results = await load_or_reload_cog()
 
     if LOG_CHANNEL:
@@ -94,7 +132,7 @@ async def on_ready():
         total = len(results["success"]) + len(results["reloaded"]) + len(results["failed"])
         embed.set_footer(text=f"Total cogs processed: {total}")
         await LOG_CHANNEL.send(embed=embed)
-    
+
     print("💟 BOT IS READY")
 
 # ---- Reload command (admin-safe) ----
@@ -135,7 +173,7 @@ async def reload_cog(ctx, cog_name: str = None):
     if LOG_CHANNEL and LOG_CHANNEL.id != ctx.channel.id:
         await LOG_CHANNEL.send(embed=embed)
     await ctx.send(embed=embed)
- 
+
 # ---- Shutdown command (admin-safe) ----
 @bot.command(name="shutdown")
 async def shutdown(ctx):
@@ -162,7 +200,7 @@ async def on_command_error(ctx, error):
         await ctx.send("❌ You do not have the required permissions to run this command.")
     else:
         raise error
-    
+
 # ---- Signal handling for safe shutdown ----
 def handle_exit(*args):
     LOG_CHANNEL = bot.get_channel(settings.get("LOG_CHANNEL_ID"))
